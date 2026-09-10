@@ -1,0 +1,55 @@
+# ============================================================
+# MLB ML Betting Pipeline - Configuration
+# ============================================================
+project:
+  name: mlb-ml-betting
+  timezone: "America/New_York"
+  random_seed: 42
+
+paths:
+  raw_games: "data/games_raw.csv"
+  features: "data/features.parquet"
+  model: "models/model_bundle.joblib"
+  reference_features: "data/reference_features.parquet"
+  predictions_csv: "reports/predictions.csv"
+  output_json: "reports/output.json"
+  calibration_plot: "reports/calibration_curve.png"
+  drift_report: "reports/drift_report.json"
+
+# --- Stage 1: Ingestion ---
+ingestion:
+  sport_id: 1
+  season: 2026
+  historical_start: "2026-03-25"   # Opening Day aprox.
+  request_sleep_seconds: 0.35      # respetar rate-limit de statsapi
+  hydrate: "team,linescore,probablePitcher"
+
+# --- Stage 2: Feature engineering ---
+features:
+  rolling_windows: [5, 10, 20]
+  pythagorean_exponent: 1.83
+  min_games_for_rolling: 3
+  variance_threshold: 0.0005
+  correlation_threshold: 0.95
+
+# --- Stage 3/4: Training & Calibration ---
+training:
+  n_splits: 5                  # TimeSeriesSplit walk-forward
+  embargo_games: 1             # gap entre train/valid para evitar leakage
+  validation_size: 0.20        # slice temporal final para calibracion
+  n_bins_ece: 20               # ECE con exactamente 20 bins uniformes
+  calibration_method: "isotonic"   # isotonic | sigmoid | beta
+  kelly_fraction: 0.25         # Kelly fraccional (25%)
+  max_stake_fraction: 0.02     # tope del bankroll por apuesta (2%)
+  min_edge_threshold: 0.03     # edge minimo sobre prob. implicita para apostar
+
+# --- Stage 5: Drift ---
+drift:
+  psi_warning: 0.10
+  psi_critical: 0.25
+  ks_pvalue_warning: 0.05
+  window_recent_games: 200     # ventana reciente para concept drift
+  retrain_accuracy_drop: 0.05  # disparador de re-entrenamiento
+
+# Odds de casas (opcional). Si no existe el archivo, se usa 1.90/1.90 como placeholder
+odds_file: "config/odds_today.json"

@@ -1,0 +1,35 @@
+name: daily-predict
+# Pipeline DIARIO: ingest -> features -> evaluacion/drift -> prediccion.
+# Sin terminal: se dispara solo con cron y sube artefactos descargables.
+on:
+  schedule:
+    - cron: "35 20 * * *"   # 20:35 UTC (~16:35 ET) antes de los juegos nocturnos
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Stage 1-2-4-5 (daily, sin retrain)
+        run: python -m src.pipeline_stages daily
+
+      - name: Publicar reportes
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-reports
+          path: |
+            reports/
+            data/games_raw.csv

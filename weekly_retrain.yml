@@ -1,0 +1,43 @@
+name: weekly-retrain
+# Re-entrenamiento semanal COMPLETO + commit de datos/modelo al repo.
+# Tambien puede dispararse manualmente (workflow_dispatch) o por drift CRITICAL
+# (el job daily evalua drift; aqui lo reforzamos con la opcion manual).
+on:
+  schedule:
+    - cron: "0 13 * * 1"    # lunes 13:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Pipeline completo (5 stages)
+        run: python -m src.pipeline_stages all
+
+      - name: Persistir datos y modelo en el repo (sin terminal)
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: datos actualizados + modelo re-entrenado [skip ci]"
+          file_pattern: "data/*.csv models/*.joblib data/*.parquet reports/*.json"
+
+      - name: Publicar reportes y modelo
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrain-bundle
+          path: |
+            reports/
+            models/
+            data/
